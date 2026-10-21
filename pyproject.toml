@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 90
+target-version = "py312"
+extend-exclude = [".venv", "instance", "htmlcov"]
+
+[tool.ruff.lint]
+# E/W = pycodestyle, F = pyflakes (unused imports/variables), I = import sorting,
+# B = common bugs, UP = modern Python
+select = ["E", "W", "F", "I", "B", "UP"]

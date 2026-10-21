@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Agile Metrics{% endblock %}
+{% block content %}
+<div class="flash warning">
+  <strong>SAMPLE DATA:</strong> every number on this page is illustrative sample data
+  for demonstration. It is not measured from a real team.
+</div>
+
+<section class="cards">
+  <div class="card"><span class="count">{{ data.average_velocity }}</span>Avg Velocity (points/sprint)</div>
+  <div class="card"><span class="count">{{ data.overall_defect_density }}</span>Defect Density (per KLOC)</div>
+  <div class="card"><span class="count">{{ data.average_lead_time }}</span>Avg Lead Time (days)</div>
+  <div class="card"><span class="count">{{ data.average_cycle_time }}</span>Avg Cycle Time (days)</div>
+</section>
+
+<section class="panel">
+  <h2>Sprint velocity and defect density (sample data)</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Sprint</th><th>Planned</th><th>Completed (velocity)</th><th>Defects</th><th>KLOC</th><th>Defects / KLOC</th></tr></thead>
+    <tbody>
+      {% for s in data.sprints %}
+      <tr>
+        <td>{{ s.name }}</td><td>{{ s.planned }}</td><td>{{ s.completed }}</td>
+        <td>{{ s.defects }}</td><td>{{ s.kloc }}</td><td>{{ s.defect_density }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <h3>Velocity chart (sample data)</h3>
+  {% for s in data.sprints %}
+    <div class="bar-row">
+      <span class="bar-label">{{ s.name }}</span>
+      <div class="bar" style="width: {{ (s.completed / 30 * 100)|round|int }}%">{{ s.completed }}</div>
+    </div>
+  {% endfor %}
+</section>
+
+<section class="panel">
+  <h2>Lead time and cycle time per user story (sample data)</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Story</th><th>Title</th><th>Created</th><th>Started</th><th>Done</th><th>Lead time (days)</th><th>Cycle time (days)</th></tr></thead>
+    <tbody>
+      {% for s in data.stories %}
+      <tr>
+        <td>{{ s.id }}</td><td>{{ s.title }}</td><td>{{ s.created }}</td>
+        <td>{{ s.started }}</td><td>{{ s.done }}</td><td>{{ s.lead_time }}</td><td>{{ s.cycle_time }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

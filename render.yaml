@@ -1,0 +1,16 @@
+# Render Blueprint (optional). Deployment is triggered by GitHub Actions
+# through a deploy hook, so Render's own auto-deploy is switched off.
+services:
+  - type: web
+    name: task-management-system
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: SECRET_KEY
+        generateValue: true

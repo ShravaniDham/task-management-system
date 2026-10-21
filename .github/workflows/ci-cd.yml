@@ -1,0 +1,130 @@
+# CI/CD pipeline:  GitHub -> Build -> Automated Testing -> Code Quality Check -> Deployment
+name: CI/CD Pipeline
+
+# GitHub is the trigger: runs on every push, every pull request, and manually.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------- Stage 1: BUILD ----------
+  build:
+    name: 1 - Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code from GitHub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile check (syntax errors fail the build)
+        run: python -m compileall -q app run.py
+
+      - name: Check the app can start
+        run: |
+          python -c "from app import create_app; create_app({'DATABASE': '/tmp/build-check.db'}); print('Build OK')"
+
+  # ---------- Stage 2: AUTOMATED TESTING ----------
+  test:
+    name: 2 - Automated Testing
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit and integration tests with coverage
+        run: coverage run -m pytest -v
+
+      - name: Coverage report (fails if below 80 percent)
+        run: |
+          coverage report
+          coverage html
+          coverage xml
+
+      - name: Save coverage report as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            htmlcov/
+            coverage.xml
+
+  # ---------- Stage 3: CODE QUALITY CHECK ----------
+  code-quality:
+    name: 3 - Code Quality Check (Ruff)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+  # ---------- Stage 4: DEPLOYMENT ----------
+  # Runs ONLY if build, test and code-quality all passed, and only for pushes to main.
+  deploy:
+    name: 4 - Deployment (Render)
+    needs: [build, test, code-quality]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_URL secret is not set. Deployment was SKIPPED (nothing was deployed)."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Deploy requested. Check the Render dashboard for the build result."
+
+      - name: Optional health check of the live app
+        env:
+          APP_URL: ${{ vars.RENDER_APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "RENDER_APP_URL variable not set - skipping health check."
+            exit 0
+          fi
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent "$APP_URL/health"; then
+              echo ""
+              echo "Health check passed."
+              exit 0
+            fi
+            echo "Waiting for app to wake up/redeploy... attempt $i"
+            sleep 30
+          done
+          echo "::error::Health check failed."
+          exit 1
